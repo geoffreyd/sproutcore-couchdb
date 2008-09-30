@@ -1,0 +1,1 @@
+CouchDB server adaptor for SproutCore, with updated SC.Server, SC.RestServer, and SC.RailsServer implementations.
