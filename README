@@ -4,4 +4,10 @@ CouchDB server adaptor for SproutCore. Includes updated SC.Server, SC.RestServer
 
 Usage:
 
-See http://www.sproutcore.com/2008/07/20/sproutcore-0914-github-is-fun-edition/ for how to use installable frameworks like this one.
+  $ sc-install onitunes-couchdb
+  
+  Then edit sc-config:
+  
+    c[:required] = [:sproutcore, :'onitunes-couchdb']
+    
+  ...and restart sc-server.
