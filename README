@@ -1,13 +1,17 @@
-CouchDB server adaptor for SproutCore. Includes updated SC.Server, SC.RestServer, and SC.RailsServer implementations.
+CouchDB server adaptor for SproutCore. 
+
+Includes updated SC.Server, SC.RestServer, and SC.RailsServer implementations. -Lawrence Pit (with bug fixes buy geoffreyd)
+
+These updated versions of the server code will most likely make it's way into SproutCore before 1.0
 
 *NOTE*: Overrides built-in SproutCore implementations of SC.Server, SC.RestServer, and SC.RailsServer.
 
 Usage:
 
-  $ sc-install onitunes-couchdb
+  $ sc-install geoffreyd-couchdb
   
   Then edit sc-config:
   
-    c[:required] = [:sproutcore, :'onitunes-couchdb']
+    c[:required] = [:sproutcore, :'geoffreyd-couchdb']
     
   ...and restart sc-server.
