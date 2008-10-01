@@ -332,7 +332,7 @@ SC.Server = SC.Object.extend({
     if (!records || records.length == 0) return ;
     if (!options) options = {} ;
 
-    records = records.byResourceURL() ; // group by resource.
+    records = this._byResourceURL(records) ; // group by resource.
     for(var resource in records) {
       if (resource == '*') continue ;
 
@@ -340,6 +340,7 @@ SC.Server = SC.Object.extend({
 
       // collect data for records
       var server = this ; var recs = {} ;
+      var context = {} ;
       var data = curRecords.map(function(rec) {
         var recData = server._decamelizeData(rec.getPropertyData()) ;
         recData._guid = rec._guid ;
@@ -347,9 +348,11 @@ SC.Server = SC.Object.extend({
         return recData ;
       }) ;
 
-      context.records = recs ;
-      context.onSuccess = options.onSuccess ;
-      context.onFailure = options.onFailure ;
+      context = {
+        records: recs,
+        onSuccess: options.onSuccess,
+        onFailure: options.onFailure
+      }
 
       var params = {
         requestContext: context,
@@ -405,7 +408,7 @@ SC.Server = SC.Object.extend({
     if (!records || records.length == 0) return ;
     if (!options) options = {} ;
 
-    records = records.byResourceURL() ; // group by resource.
+    records = this._byResourceURL(records) ; // group by resource.
     for(var resource in records) {
       if (resource == '*') continue ;
 
@@ -419,9 +422,9 @@ SC.Server = SC.Object.extend({
         var key = r.get(primaryKey);
         if (key) { ids.push(key); }
       });
-
+      
       var context = {
-        recordType: curRecords[0].recordType, // default record type
+        recordType: this._instantiateRecordType(curRecords[0].get('type'), this.prefix, null), // default rec type.
         onSuccess: options.onSuccess,
         onFailure: options.onFailure
       };
@@ -464,7 +467,7 @@ SC.Server = SC.Object.extend({
     if (!records || records.length == 0) return ;
     if (!options) options = {} ;
 
-    records = records.byResourceURL() ; // group by resource.
+    records = this._byResourceURL(records) ; // group by resource.
     for(var resource in records) {
       if (resource == '*') continue ;
 
@@ -510,6 +513,7 @@ SC.Server = SC.Object.extend({
         }
 
         var context = {
+//          recordType: curRecords[0].get('type'),
           onSuccess: options.onSuccess,
           onFailure: options.onFailure
         };
@@ -558,7 +562,7 @@ SC.Server = SC.Object.extend({
       onFailure: options.onFailure
     };
 
-    records = records.byResourceURL() ; // group by resource.
+    records = this._byResourceURL(records) ; // group by resource.
     for(var resource in records) {
       var curRecords = context.records = records[resource] ;
 
@@ -614,42 +618,75 @@ SC.Server = SC.Object.extend({
   refreshRecordsWithData: function(dataAry,recordType,cacheCode,loaded) {
     var server = this ;
 
-    // first, prepare each data item in the Ary.
-    dataAry = dataAry.map(function(data) {
-
-      // camelize the keys received back.
-      data = server._camelizeData(data) ;
-
-      // convert the 'id' property to 'guid'
-      if (data.id) { data.guid = data.id; delete data.id; }
-
-      // find the recordType
-      if (data.type) {
-        var recordName = data.type.capitalize() ;
-        if (server.prefix) {
-          for (var prefixLoc = 0; prefixLoc < server.prefix.length; prefixLoc++) {
-            path = "%@.%@".format(server.prefix[prefixLoc], recordName) ;
-            data.recordType = SC.Object.objectForPropertyPath(path) ;
-            if (data.recordType) break ;
-          }
-        } else data.recordType = SC.Object.objectForPropertyPath(recordName) ;
-
-      } else data.recordType = recordType ;
-
-      if (!data.recordType) {
-        console.log('skipping undefined recordType:'+recordName) ; 
-        return null; // could not process.
-      }
-      
-      return data ;
-    }).compact() ;
+    // Loop through the data Array and prepare each element
+    var prepedDataAry = [];
+    for (var idx = 0; idx < dataAry.length; idx++)
+    {
+      var currElem = server._prepareDataForRecords(dataAry[idx], server, recordType);
+      if (currElem !== null) prepedDataAry.push(currElem);
+    }
 
     // now update.
-    SC.Store.updateRecords(dataAry,server,recordType,loaded) ;
+    SC.Store.updateRecords(prepedDataAry,server,recordType,loaded) ;
   },
 
   // ................................
   // PRIVATE METHODS
+  
+  _prepareDataForRecords: function(data, server, defaultType) {
+    if (data === null) {
+        return null;
+    } else if ($type(data) == T_ARRAY) {
+      var that = this;
+      return data.map( function(d) {
+        return that._prepareDataForRecords(d, server, defaultType) ;
+      }) ;
+    } else if ($type(data) == T_HASH) { 
+//      data = server._camelizeData(data) ; // camelize the keys received back.
+      if (data.id) {
+        // convert the 'id' property to 'guid'
+        data.guid = data.id;
+        delete data.id;
+      }
+      data.recordType = server._instantiateRecordType(data.type, server.prefix, defaultType);
+      if (data.recordType) {
+        return data;
+      } else {
+        console.log("Data RecordType could not be instantiated!: "+data.type) ;
+        return null; // could not process.
+      }
+    } else {
+      console.log("Unknown data type in SC.Server#_prepareDataForRecords. Should be array or hash.") ;
+      return null; // could not process.
+    }
+  },
+
+  _instantiateRecordType: function(recordType, prefix, defaultType) {
+    if (recordType) {
+      var recordName = recordType.capitalize() ;
+      if (prefix) {
+        for (var prefixLoc = 0; prefixLoc < prefix.length; prefixLoc++) {
+          var prefixParts = prefix[prefixLoc].split('.');
+          var namespace = window;
+          for (var prefixPartsLoc = 0; prefixPartsLoc < prefixParts.length; prefixPartsLoc++) {
+            var namespace = namespace[prefixParts[prefixPartsLoc]] ;
+          }
+          if (namespace !== window) return namespace[recordName] ;
+        }
+      } else return window[recordName] ;
+    } else return defaultType; 
+  },
+  
+  // places records from array into hash, sorted by resourceURL.
+  _byResourceURL: function(data) {
+    var ret = {} ;
+    data.each(function(rec) {
+      var recs = ret[rec.resourceURL || '*'] || [] ;
+      recs.push(rec)  ;
+      ret[rec.resourceURL || '*'] = recs ;
+    }) ;
+    return ret ;
+  },
 
   _camelizeData: function(data) {
     if (data == null) return data ;
@@ -727,6 +764,19 @@ SC.Server = SC.Object.extend({
 
     // handle other values
     } else return [rootKey,params].join('=') ;
+  },
+
+  init: function() {
+    sc_super();
+    SC.Server.addServer(this);
   }
 
 }) ;
+
+SC.Server.servers = [];
+
+SC.Server.addServer = function(server) {
+  var ary = SC.Server.servers;
+  ary.push(server);
+  SC.Server.servers = ary;
+};

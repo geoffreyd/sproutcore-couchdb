@@ -266,7 +266,7 @@ SC.CouchdbServer = SC.Server.extend({
     if (!records || records.length == 0) return ;
     if (!options) options = {} ;
 
-    records = records.byResourceURL() ; // group by resource.
+    records = this._byResourceURL(records) ; // group by resource.
     for(var resource in records) {
       if (resource == '*') continue ;
 
@@ -361,7 +361,7 @@ SC.CouchdbServer = SC.Server.extend({
     records.each(function(r) {
       var primaryKey = r.get('primaryKey') ;
       var context = {
-        recordType: r.recordType, // default record type
+        recordType: this._instantiateRecordType(curRecords[0].get('type'), this.prefix, null), // default rec type.
         onSuccess: options.onSuccess,
         onFailure: options.onFailure
       };
@@ -408,7 +408,7 @@ SC.CouchdbServer = SC.Server.extend({
     if (!records || records.length == 0) return ;
     if (!options) options = {} ;
 
-    records = records.byResourceURL() ; // sort by resource.
+    records = this._byResourceURL(records) ; // sort by resource.
     for(var resource in records) {
       if (resource == '*') continue ;
 
@@ -498,7 +498,7 @@ SC.CouchdbServer = SC.Server.extend({
     if (!records || records.length == 0) return ;
     if (!options) options = {} ;
 
-    records = records.byResourceURL() ; // sort by resource.
+    records = this._byResourceURL(records) ; // sort by resource.
     for(var resource in records) {
       var curRecords = records[resource] ;
       
@@ -560,11 +560,30 @@ SC.CouchdbServer = SC.Server.extend({
   refreshRecordsWithData: function(dataAry,recordType,cacheCode,loaded) {
     var server = this ;
 
-    // first, prepare each data item in the Ary.
-    dataAry = dataAry.map(function(data) {
+    // Loop through the data Array and prepare each element
+    var prepedDataAry = [];
+    for (var idx = 0; idx < dataAry.length; idx++)
+    {
+      var currElem = server._prepareDataForRecords(dataAry[idx], server, recordType);
+      if (currElem !== null) prepedDataAry.push(currElem);
+    }
 
-      // convert the '_id' property to 'guid' to keep the id's that couchdb has given
+    // now update.
+    SC.Store.updateRecords(prepedDataAry,server,recordType,loaded) ;
+  },
+  
+  _prepareDataForRecords: function(data, server, defaultType) {
+    if (data === null) {
+        return null;
+    } else if ($type(data) == T_ARRAY) {
+      var that = this;
+      return data.map( function(d) {
+        return that._prepareDataForRecords(d, server, defaultType) ;
+      }) ;
+    } else if ($type(data) == T_HASH) { 
+      //data = server._camelizeData(data) ; // camelize the keys received back.
       if (data._id) { 
+        // convert the '_id' property to 'guid' to keep the id's that couchdb has given
         data.guid = data._id; delete data._id; 
       }else if (data.id) {
         data.guid = data.id; delete data.id;
@@ -572,29 +591,17 @@ SC.CouchdbServer = SC.Server.extend({
       if (data.rev) {
         data._rev = data.rev; delete data.rev ;
       }
-
-      // find the recordType
-      if (data.type) {
-        var recordName = data.type.capitalize() ;
-        if (server.prefix) {
-          for (var prefixLoc = 0; prefixLoc < server.prefix.length; prefixLoc++) {
-            path = "%@.%@".format(server.prefix[prefixLoc], recordName) ;
-            data.recordType = SC.Object.objectForPropertyPath(path) ;
-            if (data.recordType) break ;
-          }
-        } else data.recordType = SC.Object.objectForPropertyPath(recordName) ;
-      } else data.recordType = recordType ;
-
-      if (!data.recordType) {
-        console.log('skipping undefined recordType:'+recordName) ;
+      data.recordType = server._instantiateRecordType(data.type, server.prefix, defaultType);
+      if (data.recordType) {
+        return data;
+      } else {
+        console.log("Data RecordType could not be instantiated!: "+data.type) ;
         return null; // could not process.
       }
-        
-      return data ;
-    }).compact() ;
-
-    // now update.
-    SC.Store.updateRecords(dataAry,server,recordType,loaded) ;
-  }
+    } else {
+      console.log("Unknown data type in SC.CouchdbServer#_prepareDataForRecords. Should be array or hash.") ;
+      return null; // could not process.
+    }
+  },
   
 }) ;
