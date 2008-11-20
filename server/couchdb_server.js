@@ -361,7 +361,7 @@ SC.CouchdbServer = SC.Server.extend({
     records.each(function(r) {
       var primaryKey = r.get('primaryKey') ;
       var context = {
-        recordType: this._instantiateRecordType(curRecords[0].get('type'), this.prefix, null), // default rec type.
+        recordType: this._instantiateRecordType(r.get('type'), this.prefix, null), // default rec type.
         onSuccess: options.onSuccess,
         onFailure: options.onFailure
       };
@@ -372,8 +372,8 @@ SC.CouchdbServer = SC.Server.extend({
         _onFailure: this._refreshFailure.bind(this)
       };
       // issue request
-      this.request(resource, this._refreshAction, [r.get(primaryKey)], params, this._refreshMethod) ;
-    });
+      this.request(r, this._refreshAction, [r.get(primaryKey)], params, this._refreshMethod) ;
+    }, this);
     
   },
 
