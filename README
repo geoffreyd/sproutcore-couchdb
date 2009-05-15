@@ -1,6 +1,6 @@
 CouchDB server adaptor for SproutCore. 
 
-NOTE!!: This framework will only work with SC 0.9, and not 1.0alpha. A new version is in the works.
+NOTE!!: This framework will only work with SC 0.9, and not 1.0alpha. A new version is in the works. have a look in the 1.0 branch.
 
 Includes updated SC.Server, SC.RestServer, and SC.RailsServer implementations. -Lawrence Pit (with bug fixes buy geoffreyd)
 
