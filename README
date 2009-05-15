@@ -3,3 +3,19 @@ CouchDB server adaptor for SproutCore.
 This is the branch that will work with the 1.0a of sproutcore.
 
 It is a work in progress with currently only fetching of views, and creating/ updating of individual records working
+
+Some things to make it work:
+
+in your model, you should add these properties:
+
+primaryKey:"_id",
+couchDesign:"tasks",
+couchView:"all_tasks"
+
+To set the default view. (you will be able to over write these in a future version.)
+
+in your core.js you'll want to set the store like this:
+
+store: SC.Store.create().from(SC.CouchdbDataSource.create({database:"tasks"}))
+
+Then you should be able to relax.
